@@ -4,17 +4,17 @@ BigQuery SQL models for performing Recency, Frequency, and Monetary (RFM) Custom
 
 ## REPOSITORY
 
-### 1. 1.0_RFM-Discrete-Rules-Option-A.sql (Fixed Lookup Model)
+### 1. 1.0_RFM-Discrete-Rules-Option-A (Fixed Lookup Model)
 * Approach: Uses discrete integer scoring (1 to 5) and a standard 11-segment lookup mapping.
 * Best Used For: Matching traditional categorical RFM frameworks, standardized BI dashboards, and step-by-step reporting walkthroughs.
 * Key Logic: Concatenates rfm_recency, rfm_frequency, and rfm_monetary into a 3-character string (e.g., '555', '511') and maps it against an explicit lookup CASE statement.
 
-### 2. 1.1_RFM-Percentile-Dynamic-Option-B.sql (Production Model)
+### 2. 1.1_RFM-Percentile-Dynamic-Option-B (Production Model)
 * Approach: Continuous mathematical percentiles (PERCENT_RANK()) combined with composite threshold scoring.
 * Best Used For: Scaled production pipelines and stores with non-standard order distributions (e.g., high AOV low-frequency stores, or subscription models).
 * Key Logic: Replaces static lookup strings with fluid threshold rules (rfm_recency >= 4 AND rfm_frequency >= 4), ensuring 100% of customers fall into active behavioral segments without edge-case NULL values.
 
-### 3. 1.2_Days-Between-First-And-Last-Purchase.sql (Lifecycle Auxiliary)
+### 3. 1.2_Days-Between-First-And-Last-Purchase (Lifecycle Auxiliary)
 * Approach: Summary query computing customer lifespan metrics.
 * Key Metrics: Orders count, total spend, AOV, first purchase date, most recent purchase date, and total active days elapsed between orders.
 
