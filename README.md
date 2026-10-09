@@ -1,8 +1,6 @@
-# GA4 BigQuery RFM Segmentation Toolkit
+# OVERVIEW
 
-A production-grade collection of BigQuery SQL models for performing Recency, Frequency, and Monetary (RFM) Customer Segmentation using Google Analytics 4 (GA4) e-commerce export data.
-
----
+BigQuery SQL models for performing Recency, Frequency, and Monetary (RFM) Customer Segmentation using Google Analytics 4 (GA4) export data.
 
 ## 📌 Context & Data Maturity
 
