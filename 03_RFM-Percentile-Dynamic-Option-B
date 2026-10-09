@@ -1,0 +1,122 @@
+WITH base_purchases AS (
+  SELECT
+    COALESCE(user_id, user_pseudo_id) AS customer_id,
+    ecommerce.transaction_id,
+    ecommerce.purchase_revenue,
+    TIMESTAMP_MICROS(event_timestamp) AS event_timestamp
+  FROM
+    `enter.tablename_123456.events_*`
+  WHERE
+    _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH))
+    AND event_name = 'purchase'
+    AND ecommerce.transaction_id IS NOT NULL
+),
+
+-- Aggregate customer metrics & compute dataset max date in a single pass
+rfm_data AS (
+  SELECT
+    customer_id AS user_id,
+    SUM(purchase_revenue) AS total_revenue,
+    ROUND(AVG(purchase_revenue), 2) AS average_revenue,
+    COUNT(DISTINCT transaction_id) AS frequency,
+    MAX(event_timestamp) AS most_recent_purchase,
+    MAX(MAX(event_timestamp)) OVER() AS max_order_date
+  FROM
+    base_purchases
+  GROUP BY
+    customer_id
+),
+
+-- Calculate recency in days
+rfm_calculated AS (
+  SELECT
+    user_id,
+    total_revenue,
+    frequency,
+    average_revenue AS monetary,
+    DATE_DIFF(DATE(max_order_date), DATE(most_recent_purchase), DAY) AS recency
+  FROM
+    rfm_data
+),
+
+-- Compute continuous percentile ranks (0.0 to 1.0 scale)
+rfm_percentiles AS (
+  SELECT
+    user_id,
+    total_revenue,
+    frequency,
+    recency,
+    monetary,
+    -- Recency percentile: Inverted so recent purchasers get closer to 1.0
+    1 - PERCENT_RANK() OVER (ORDER BY recency ASC) AS recency_percentile,
+    
+    -- Frequency percentile
+    PERCENT_RANK() OVER (ORDER BY frequency ASC) AS frequency_percentile,
+    
+    -- Monetary percentile
+    PERCENT_RANK() OVER (ORDER BY monetary ASC) AS monetary_percentile
+  FROM
+    rfm_calculated
+),
+
+-- Convert percentiles into scores (1-5) based on dynamic threshold cuts
+rfm_scores AS (
+  SELECT
+    *,
+    -- Recency Score (5 = top 20% most recent)
+    CASE 
+      WHEN recency_percentile >= 0.80 THEN 5
+      WHEN recency_percentile >= 0.60 THEN 4
+      WHEN recency_percentile >= 0.40 THEN 3
+      WHEN recency_percentile >= 0.20 THEN 2
+      ELSE 1
+    END AS rfm_recency,
+
+    -- Frequency Score (Discrete override to safeguard 1-time buyers)
+    CASE 
+      WHEN frequency = 1 THEN 1
+      WHEN frequency = 2 THEN 2
+      WHEN frequency = 3 THEN 3
+      WHEN frequency = 4 THEN 4
+      ELSE 5
+    END AS rfm_frequency,
+
+    -- Monetary Score (5 = top 20% spenders)
+    CASE 
+      WHEN monetary_percentile >= 0.80 THEN 5
+      WHEN monetary_percentile >= 0.60 THEN 4
+      WHEN monetary_percentile >= 0.40 THEN 3
+      WHEN monetary_percentile >= 0.20 THEN 2
+      ELSE 1
+    END AS rfm_monetary
+  FROM
+    rfm_percentiles
+)
+
+-- Final Segment Assignment using combined score logic
+SELECT
+  user_id AS customer_id,
+  total_revenue,
+  frequency AS total_transactions,
+  recency,
+  monetary,
+  rfm_recency,
+  rfm_frequency,
+  rfm_monetary,
+  (rfm_recency + rfm_frequency + rfm_monetary) AS composite_rfm_score,
+  
+  -- Flexible dynamic segment tagging based on composite score & recency weighting
+  CASE
+    WHEN rfm_recency >= 4 AND rfm_frequency >= 4 AND rfm_monetary >= 4 THEN 'Champions'
+    WHEN rfm_recency >= 3 AND rfm_frequency >= 3 AND rfm_monetary >= 3 THEN 'Loyal Customers'
+    WHEN rfm_recency >= 4 AND rfm_frequency <= 2 THEN 'Recent Spenders'
+    WHEN rfm_recency >= 3 AND rfm_recency <= 4 AND rfm_frequency <= 2 THEN 'Promising'
+    WHEN rfm_recency <= 2 AND rfm_frequency >= 3 THEN 'At Risk / Needs Attention'
+    WHEN rfm_recency = 1 AND rfm_frequency >= 4 THEN 'Cannot Lose Them'
+    WHEN rfm_recency = 1 AND rfm_frequency <= 2 THEN 'Lost'
+    ELSE 'Others / General Spenders'
+  END AS segment
+FROM
+  rfm_scores
+ORDER BY
+  composite_rfm_score DESC;
