@@ -2,21 +2,7 @@
 
 BigQuery SQL models for performing Recency, Frequency, and Monetary (RFM) Customer Segmentation using Google Analytics 4 (GA4) export data.
 
-## 📌 Context & Data Maturity
-
-This repository serves as a Level 1 Data Maturity framework for e-commerce customer segmentation:
-* Horizon: Ideal for 6–12 month operational windows to identify high-value tiers, at-risk buyers, and churn candidates without needing complex external ETL pipelines.
-* Server-Side Compatibility: Fully optimized for both standard web streams and Server-Side Google Tag Manager (sGTM) implementations.
-* Optimized Architecture: Designed to minimize scan costs and processing overhead in BigQuery via strict partition pruning and windowed analytics.
-
----
-
-## 📁 Repository File Layout
-
-├── 01_RFM-Discrete-Rules-Option-A.sql
-├── 02_RFM-Percentile-Dynamic-Option-B.sql
-├── 03_Days-Between-First-And-Last-Purchase.sql
-└── README.md
+## REPOSITORY
 
 ### 1. 01_RFM-Discrete-Rules-Option-A.sql (Fixed Lookup Model)
 * Approach: Uses discrete integer scoring (1 to 5) and a standard 11-segment lookup mapping.
@@ -32,9 +18,7 @@ This repository serves as a Level 1 Data Maturity framework for e-commerce custo
 * Approach: Summary query computing customer lifespan metrics.
 * Key Metrics: Orders count, total spend, AOV, first purchase date, most recent purchase date, and total active days elapsed between orders.
 
----
-
-## ⚡ SQL Optimization & Performance Highlights
+## SQL OPTIMISATION & PERFORMANCE 
 
 All models in this repository incorporate key performance and data-quality optimizations:
 
@@ -43,9 +27,7 @@ All models in this repository incorporate key performance and data-quality optim
 3. Single-Pass Aggregations: Derives dataset-wide reference dates using window functions (MAX(MAX(event_timestamp)) OVER()), eliminating unnecessary self-joins.
 4. Data Hygiene: Explicitly filters out uncaptured or null ecommerce.transaction_id records to prevent skew from invalid conversion tags.
 
----
-
-## 📊 Summary Output Schema
+## SUMMARY OUTPUT SCHEME
 
 Running either model produces a clean, customer-level grain table:
 
@@ -61,10 +43,4 @@ Running either model produces a clean, customer-level grain table:
 | rfm_monetary | INTEGER | Monetary score (1 to 5). |
 | segment | STRING | Assigned RFM behavioral segment label. |
 
----
 
-## 🛠 Prerequisites & Usage
-
-1. Replace the table wildcard path enter.tablename_123456.events_* with your Google Analytics 4 BigQuery export table ID.
-2. Adjust the date interval in _TABLE_SUFFIX (default: 24 months) to match your dataset's historical depth.
-3. Execute directly in BigQuery or schedule as a persistent table/view for Looker Studio or Power BI downstream reporting.
