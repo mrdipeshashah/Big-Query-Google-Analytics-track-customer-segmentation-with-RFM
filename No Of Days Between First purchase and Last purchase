@@ -1,22 +1,28 @@
-with first as (
-  select
-  parse_date('%Y%m%d', event_date) as order_date,
-  timestamp_micros(event_timestamp) as time_stamp,
-  user_pseudo_id as customer_id,
-  ecommerce.transaction_id as order_id,
-  ROUND(ecommerce.purchase_revenue, 2) as revenue
-from `enter.tablename_123456.events_*`
-where event_name = 'purchase'
+WITH first AS (
+  SELECT
+    COALESCE(user_id, user_pseudo_id) AS customer_id,
+    ecommerce.transaction_id AS order_id,
+    ecommerce.purchase_revenue AS revenue,
+    DATE(TIMESTAMP_MICROS(event_timestamp)) AS order_date
+  FROM
+    `enter.tablename_123456.events_*`
+  WHERE
+    _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH))
+    AND event_name = 'purchase'
+    AND ecommerce.transaction_id IS NOT NULL
 )
 
 SELECT
   customer_id,
-  count(distinct order_id) as no_of_transactions,
-  sum(revenue) as total_revenue,
-  round(avg(revenue), 2) as aov,
-  min(order_date) as first_purchase_date,
-  max(order_date) as last_purchase_date,
-  date_diff(max(order_date), min(order_date), DAY) as days_between_first_last_purchase
-from first
-group by customer_id
-order by 2 desc
+  COUNT(DISTINCT order_id) AS no_of_transactions,
+  SUM(revenue) AS total_revenue,
+  ROUND(AVG(revenue), 2) AS aov,
+  MIN(order_date) AS first_purchase_date,
+  MAX(order_date) AS last_purchase_date,
+  DATE_DIFF(MAX(order_date), MIN(order_date), DAY) AS days_between_first_last_purchase
+FROM
+  first
+GROUP BY
+  customer_id
+ORDER BY
+  no_of_transactions DESC;
